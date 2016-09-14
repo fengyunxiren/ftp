@@ -530,13 +530,3 @@ class ProgressBar(object):
 
 
 
-if __name__ == '__main__':
-    #connect = FTPClient('127.0.0.1', 21, 'cn01', 'airation')
-    #connect.download('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test')
-    #connect.progress_bar_download('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test', bufsize=64)
-    #connect.progress_bar_upload('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test', bufsize=64)
-    connect = BlockTransport('127.0.0.1', 21, 'cn01', 'airation', trigger_size=2048*1024*1024)
-    connect.progress_bar_download('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/Transtest/local', 64)
-    #connect.merge_file('/home/cn01/wyc/test/ubuntu-14.04.4-desktop-amd64.iso', 2)
-    #connect = BlockTransport('cn06', 21, 'cn06', 'airation') 
-    #connect.download('/home/cn06/soft/wyc.tar', '/home/cn01/wyc/test')

@@ -73,10 +73,3 @@ class FTPClient(object):
 
 
 
-if __name__ == '__main__':
-    #connect = FTPClient('127.0.0.1', 21, 'cn01', 'airation')
-    #connect.download('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test')
-    #connect.upload('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test')
-    connect =  FTPClient('cn06', 21, 'cn06', 'airation')
-    #connect.download('/home/cn06/soft/wyc.tar', '/home/cn01/wyc/test')
-    connect.upload('/home/cn01/wyc/test/wyc.tar', '/home/cn06/soft/test')

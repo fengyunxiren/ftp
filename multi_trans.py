@@ -628,6 +628,4 @@ def main():
 
 
 if __name__ == '__main__':
-    #main()
-    connect = FTPTransport('127.0.0.1', 21, 'cn01', 'airation')
-    connect.download('/home/cn01/Downloads/ubuntu-14.04.4-desktop-amd64.iso', '/home/cn01/wyc/test')
+    main()

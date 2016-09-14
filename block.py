@@ -696,7 +696,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    #connect = BlockTransport('127.0.0.1', 21, 'cn01', 'airation', 128*1024*1024, 5)
-    #connect.batch_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/', 1024)
-    #connect = FTPClient('127.0.0.1', 21, 'cn01', 'airation')
-    #connect.progress_bar_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/')
