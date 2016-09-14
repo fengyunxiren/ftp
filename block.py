@@ -8,6 +8,9 @@ from multiprocessing import Process
 from threading import Thread
 import thread
 import paramiko
+import argparse
+import getpass
+import socket
 
 class FTPClient(object):
     def __init__(self, host, port, user, password):
@@ -193,8 +196,8 @@ class BlockTransport(object):
         self._port = port
         self._user = user
         self._password = password
-        self.trigger_size = trigger_size
-        self.max_process = max_process
+        self.trigger_size = int(trigger_size)
+        self.max_process = int(max_process)
         self.__real_size = 0
         self.__total_size = 0
 
@@ -237,7 +240,7 @@ class BlockTransport(object):
 
             for i in range(1, num_process+1):
                 trans = FTPClient(self._host, self._port, self._user, self._password)
-                down_name = '.'+file_name + '.part' + str(i)
+                down_name = '.'+file_name + '.part' + str(i) + '-' + str(num_process)
                 part_files.append(local_path.rstrip('/')+'/'+down_name)
                 t = Process(target=trans.download, args=(remote_path, local_path, down_name, down_start, down_block if i<num_process else None, bufsize))
                 threads.append(t)
@@ -350,7 +353,7 @@ class BlockTransport(object):
             i = 1
             for i in range(1, num_process+1):
                 trans = FTPClient(self._host, self._port, self._user, self._password)
-                up_name = '.' + file_name + '.part' + str(i)
+                up_name = '.' + file_name + '.part' + str(i) + '-' + str(num_process)
                 part_files.append(os.path.join(remote_path, up_name))
                 t = Process(target=trans.upload, args=(local_path, remote_path, up_name, up_start, up_block if i<num_process else None, bufsize))
                 threads.append(t)
@@ -442,9 +445,9 @@ class BlockTransport(object):
         else:
             try:
                 self.progress_bar_download(remote_path, local_path, bufsie)
-#            except KeyboardInterrupt as e:
-#                print("\nkeyboard interrupt")
-#                exit(0)
+            except KeyboardInterrupt as e:
+                print("\nkeyboard interrupt")
+                exit(0)
             except Exception as e:
                 print(e)
 
@@ -465,9 +468,9 @@ class BlockTransport(object):
         else:
             try:
                 self.progress_bar_upload(local_path, remote_path, bufsize)
-#            except KeyboardInterrupt as e:
-#                print("\nkeyboard interrupt")
-#                exit(0)
+            except KeyboardInterrupt as e:
+                print("\nkeyboard interrupt")
+                exit(0)
             except Exception as e:
                 print(e)
 
@@ -590,7 +593,99 @@ class ProgressBar(object):
 
 
 def main():
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+            "-p",
+            "--port",
+            default=21,
+            help="port for ftp server"
+            )
+    parser.add_argument(
+            "-m",
+            "--max_process",
+            default=5,
+            help="max number of process to use"
+            )
+    parser.add_argument(
+            "-t",
+            "--trigger_size",
+            default=128,
+            help="when file size large than trigger size, using multi process. units(Mb)."
+            )
+    parser.add_argument(
+            "-b",
+            "--bufsize",
+            default=1024,
+            help="the size in per transfer. units(Byte)"
+            )
+    parser.add_argument(
+            "send_file",
+            help="The file you want to transfer"
+            )
+    parser.add_argument(
+            "receive_path",
+            help="receive path"
+            )
+    args = parser.parse_args()
+
+    if len(args.receive_path.split(':')) == 2 and len(args.send_file.split(':')) == 1:
+        up_or_down = 'up'
+        send_file = args.send_file
+        receive_path = args.receive_path.split(':')[1]
+
+        user_and_host = args.receive_path.split(':')[0].split('@')
+        if len(user_and_host) == 1:
+            user = getpass.getuser()
+            host = user_and_host[0]
+        elif len(user_and_host) == 2:
+            user = user_and_host[0]
+            host = user_and_host[1]
+        else:
+            print("download file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] user@host:/file/path /receive/path" % sys.argv[0])
+            print("upload file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] /file/path user@host:/receive/path" % sys.argv[0])
+            return
+    elif len((args.send_file).split(':')) == 2 and len(args.receive_path.split(':')) == 1:
+        up_or_down = 'down'
+        receive_path = args.receive_path
+        send_file = args.send_file.split(':')[1]
+        user_and_host = args.send_file.split(':')[0].split('@')
+        if len(user_and_host) == 1:
+            user = getpass.getuser()
+            host = user_and_host[0]
+        elif len(user_and_host) == 2:
+            user = user_and_host[0]
+            host = user_and_host[1]
+        else:
+            print("download file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] user@host:/file/path /receive/path" % sys.argv[0])
+            print("upload file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] /file/path user@host:/receive/path" % sys.argv[0])
+            return
+    elif len(args.receive_path.split(':')) == 1 and len(args.send_file.split(':')) == 1:
+        up_or_down = 'down'
+        receive_path = args.receive_path
+        send_file = args.send_file
+        host = 'localhost'
+        user = getpass.getuser()
+    else:
+        print("download file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] user@host:/file/path /receive/path" % sys.argv[0])
+        print("upload file: %s [-p port][-m max_process][-t trigger_size][-b bufsize] /file/path user@host:/receive/path" % sys.argv[0])
+        return
+    if host == socket.gethostname():
+        host = 'localhost'
+    if send_file[0] != '/':
+        send_file = os.path.abspath(send_file)
+    if receive_path[0] != '/':
+        receive_path = os.path.abspath(receive_path)
+    port = args.port
+    password = getpass.getpass(prompt="%s's pass word:" % '@'.join([user, host]))
+    trigger_size = int(args.trigger_size) * 1024 * 1024
+    max_process = int(args.max_process)
+    bufsize = int(args.bufsize)
+    connect = BlockTransport(host, port, user, password, trigger_size, max_process)
+    call_function = {
+            'up': connect.batch_upload,
+            'down': connect.batch_download
+            }
+    call_function.get(up_or_down)(send_file, receive_path, bufsize)
 
 
 
@@ -600,7 +695,8 @@ def main():
 
 
 if __name__ == '__main__':
-    connect = BlockTransport('127.0.0.1', 21, 'cn01', 'airation', trigger_size=128*1024*1024)
-    connect.batch_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/', 64)
+    main()
+    #connect = BlockTransport('127.0.0.1', 21, 'cn01', 'airation', 128*1024*1024, 5)
+    #connect.batch_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/', 1024)
     #connect = FTPClient('127.0.0.1', 21, 'cn01', 'airation')
     #connect.progress_bar_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/')
