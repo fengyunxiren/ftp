@@ -6,11 +6,11 @@ import os
 import time
 from multiprocessing import Process
 from threading import Thread
-import thread
 import paramiko
 import argparse
 import getpass
 import socket
+import hashlib
 
 class FTPClient(object):
     def __init__(self, host, port, user, password):
@@ -103,7 +103,7 @@ class FTPClient(object):
             return -1
         t.join()
         return 0
-    
+ 
     def upload(self, local_path, remote_path, up_name=None, up_start=0, up_size=None, bufsize=1024):
         self.initial_size_record()
         local_dir = os.path.dirname(local_path)
@@ -119,7 +119,7 @@ class FTPClient(object):
         if up_size == None:
             trans_end = file_real_size
         else:
-            trans_end = up_start + up_size if (up_start+up_size) <file_real_size else file_real_size
+            trans_end = up_start + up_size if (up_start+up_size) < file_real_size else file_real_size
 
         try:
             trans_start = self.ftp.size(remote_file)
@@ -242,7 +242,7 @@ class BlockTransport(object):
                 trans = FTPClient(self._host, self._port, self._user, self._password)
                 down_name = '.'+file_name + '.part' + str(i) + '-' + str(num_process)
                 part_files.append(local_path.rstrip('/')+'/'+down_name)
-                t = Process(target=trans.download, args=(remote_path, local_path, down_name, down_start, down_block if i<num_process else None, bufsize))
+                t = Process(target=trans.download, args=(remote_path, local_path, down_name, down_start, down_block if i < num_process else None, bufsize))
                 threads.append(t)
                 down_start += down_block
                 if down_start > file_size:
@@ -251,7 +251,7 @@ class BlockTransport(object):
 
             for t in threads:
                 t.start()
-            
+ 
             loop = True
             while loop:
                 t_status = False
@@ -282,11 +282,11 @@ class BlockTransport(object):
 
 
 
-            for i, f in enumerate(part_files):
-                os.system('cat %s %s %s' % (f, '>>' if i>0 else '>', local_file))
-                os.system('rm -rf %s' % f)
 
         if self.__real_size == self.__total_size:
+            for i, f in enumerate(part_files):
+                os.system('cat %s %s %s' % (f, '>>' if i > 0 else '>', local_file))
+                os.system('rm -rf %s' % f)
             return 0
         else:
             return -1
@@ -355,7 +355,7 @@ class BlockTransport(object):
                 trans = FTPClient(self._host, self._port, self._user, self._password)
                 up_name = '.' + file_name + '.part' + str(i) + '-' + str(num_process)
                 part_files.append(os.path.join(remote_path, up_name))
-                t = Process(target=trans.upload, args=(local_path, remote_path, up_name, up_start, up_block if i<num_process else None, bufsize))
+                t = Process(target=trans.upload, args=(local_path, remote_path, up_name, up_start, up_block if i < num_process else None, bufsize))
                 threads.append(t)
                 up_start += up_block
                 if up_start > file_size:
@@ -392,16 +392,16 @@ class BlockTransport(object):
             for t in threads:
                 t.join()
 
+
+        if self.__total_size == self.__real_size:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             ssh.connect(self._host, 22, username=self._user, password=self._password)
             ssh_cm = ''
             for i, part_name in enumerate(part_files):
-                ssh_cm += 'cat %s %s %s;rm -rf %s;' % (part_name, '>>' if i>0 else '>', os.path.join(remote_path, file_name), part_name)
+                ssh_cm += 'cat %s %s %s;rm -rf %s;' % (part_name, '>>' if i > 0 else '>', os.path.join(remote_path, file_name), part_name)
             ssh.exec_command(ssh_cm)
             ssh.close()
-
-        if self.__total_size == self.__real_size:
             return 0
         else:
             return -1
@@ -425,6 +425,7 @@ class BlockTransport(object):
         if state != 0:
             pb.stop = True
         t.join()
+        return 0
 
 
 
@@ -434,7 +435,12 @@ class BlockTransport(object):
         remote_file = os.path.basename(remote_path)
         local_file = os.path.join(local_path, remote_file)
         trans = FTPClient(self._host, self._port, self._user, self._password)
-        file_list = trans.ftp.nlst(remote_path)
+        try:
+            file_list = trans.ftp.nlst(remote_path)
+        except Exception as e:
+            print(e)
+            return
+
         if len(file_list) > 1 or file_list[0] != remote_path:
             os.system('mkdir -p %s' % local_file)
             trans.ftp.cwd(remote_path)
@@ -488,7 +494,7 @@ class BlockTransport(object):
 
 
 class ProgressBar(object):
-    def __init__(self, call_back, time_flush=1):
+    def __init__(self, call_back, time_flush=0.3):
         self.call_back = call_back
         self.stop = False
         self.time_flush = time_flush
@@ -502,9 +508,9 @@ class ProgressBar(object):
         elif count > 100:
             print("count should less or equal than 100!")
         if units != 'B':
-            last_put = '%.1f/%.1f%s' % (real_size, total_size,units)
+            last_put = '%.1f/%.1f%s' % (real_size, total_size, units)
         else:
-            last_put = '%d/%d%s' % (real_size, total_size,units)
+            last_put = '%d/%d%s' % (real_size, total_size, units)
 
         last_put += '  %6.2f %s' % (rate, rate_units)
         last_put += '  %.0f s    ' % used_time
@@ -563,7 +569,7 @@ class ProgressBar(object):
             count = int(real_size / (total_size / 100)) if real_size > 1024 else int(real_size / total_size * 100)
             rate = (real_size - rate_size) / time_interval
             rate_size = real_size
-            time_left = float('inf') if rate-0<0.000001 else (total_size-real_size)/rate
+            time_left = float('inf') if rate-0 < 0.000001 else (total_size-real_size)/rate
             t_real_size = real_size
             t_total_size = total_size
             for index in range(len(units_all)):
@@ -588,8 +594,19 @@ class ProgressBar(object):
             rate_units = units_all[index] + '/s'
             self.view_bar(count, rate, units, rate_units, t_real_size, t_total_size, time_left)
             time.sleep(self.time_flush)
-        print('\n')
+            if count == 100:
+                print('\n')
 
+
+def get_md5(file_name, bufsize=2048):
+    f = open(file_name)
+    md5 = hashlib.md5()
+    while True:
+        data = f.read(bufsize)
+        if not data:
+            break
+        md5.update(data)
+    return md5.hexdigest()
 
 
 def main():
@@ -685,7 +702,42 @@ def main():
             'up': connect.batch_upload,
             'down': connect.batch_download
             }
-    call_function.get(up_or_down)(send_file, receive_path, bufsize)
+    try:
+        state = call_function.get(up_or_down)(send_file, receive_path, bufsize)
+    except Exception as e:
+        print(e)
+        return
+    if state != 0:
+        return
+
+
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host, 22, username=user, password=password)
+
+    if up_or_down == 'down':
+        stdin, stdout, stderr = ssh.exec_command('md5sum %s' % send_file)
+        remote_md5 = stdout.read().split(' ')[0]
+        local_md5 = get_md5(os.path.join(receive_path, os.path.basename(send_file)))
+        if local_md5 != remote_md5:
+            print("The file you download is broken, please download it again!")
+            return
+        else:
+            print("download successed!")
+    elif up_or_down == 'up':
+        local_md5 = get_md5(send_file)
+        stdin, stdout, stderr = ssh.exec_command(' md5sum %s' % os.path.join(receive_path, os.path.basename(send_file)))
+        remote_md5 = stdout.read().split(' ')[0]
+        if local_md5 != remote_md5:
+            print("The file you upload is broken, please upload it again!")
+            return
+        else:
+            print("upload successed!")
+
+
+
+
 
 
 
@@ -696,3 +748,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+    #connect = BlockTransport('127.0.0.1', 21, 'cn01', 'airation', 128*1024*1024, 5)
+    #connect.batch_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/', 1024)
+    #connect = FTPClient('127.0.0.1', 21, 'cn01', 'airation')
+    #connect.progress_bar_download('/home/cn01/soft/wyc.tar', '/home/cn01/Transtest/', 16)
